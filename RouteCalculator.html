@@ -1,0 +1,153 @@
+<!DOCTYPE html> <!-- @author: Niels Bekkers -->
+<html>
+  <head>
+    <title>Route Calculator</title>
+    <link href="GoogleMaps API.css" type="text/css" rel="stylesheet"/>
+    <script src="jquery-2.1.4.min.js"></script>
+  	<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB_ols3Rr98jVIYzX257V0tFwMHbgg5aR4" type="text/javascript"></script>
+    <script type="text/javascript">
+      var directionDisplay, map;
+      var directionsService = new google.maps.DirectionsService();
+      var geocoder = new google.maps.Geocoder();
+      function initialize() {   //functie die word uitgevoerd bij het laden van de pagina
+        // standaard is de map gecentreerd op onderstaande locatie
+        var latlng = new google.maps.LatLng(51.055849, 5.286919);
+        // Route opties
+        var rendererOptions = { draggable: true };
+        directionsDisplay = new google.maps.DirectionsRenderer(rendererOptions);
+        //display opties voor de map
+        var myOptions = {
+          zoom: 14,
+          center: latlng,
+          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          mapTypeControl: false
+        };
+        map = new google.maps.Map(document.getElementById("map_canvas"),myOptions);
+        // verbind de map met de richting-instructies
+        directionsDisplay.setMap(map);
+        // plaats de richtingen in de container hiervoor voorzien
+        directionsDisplay.setPanel(document.getElementById("directionsPanel"));
+        // Start de geolocatie API
+        if (navigator.geolocation) {
+          // Indien geolocatie actief is op je toestel, voer dan deze code uit
+          navigator.geolocation.getCurrentPosition(foundYou, notFound);
+        } 
+        else {
+          // indien geen geolocatie beschikbaar is, geef deze melding
+          alert('Geolocatie is niet ondersteund of is niet actief!.');
+        }
+      }
+      function notFound(msg) {  //functie indien je niet gevonden bent
+        alert('Kan jouw locatie niet vinden! :(')
+      }
+      function foundYou(position) { //functie indien je gevonden bent
+        // Converteer de positie verkregen van de geolocatie
+        var latlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+        // Zet de geocode om in een leesbare tekst
+        geocoder.geocode({'latLng': latlng}, function(results, status) {
+          if (status == google.maps.GeocoderStatus.OK) {
+            // Indien de geolocatie gevonden word, voeg het resultaat toe
+            if (results[0]) {
+              // Zet een marker op de plaats van de geolocatie
+              marker = new google.maps.Marker({
+              position: latlng,
+              map: map,
+              animation:google.maps.Animation.BOUNCE,
+              title: "Huidige Locatie"
+           });
+          // maak een string met de adres details
+          var address = results[0].address_components[1].long_name+' '+results[0].address_components[0].long_name+', '+results[0].address_components[3].long_name
+            // Zet de gevonden geolocatie in de link
+            $('.autoLink span').html(address).parent().show().click(function(){
+              $('#routeStart').val(address);
+              // Roep de functie calcRoute() op om de route te berekenen
+              calcRoute();
+            });
+          }
+        } 
+        else {
+          alert("Geocoder kan niet opstarten: " + status);
+          }
+        });
+      }
+      function calcRoute() {
+        // Haal uit het formulier de reismode op (travelmode, start, end)  
+        var travelMode = $('input[name="travelMode"]:checked').val();
+        var start = $("#routeStart").val();
+        var end = $("#routeEnd").val();
+        // Maak een array met de routeopties
+        var request = {
+          origin: start,
+          destination: end,
+          unitSystem: google.maps.UnitSystem.METRIC,  //geef weer of het systeem in KM of in MIJL de afstand moet uitdrukken
+          travelMode: google.maps.DirectionsTravelMode[travelMode] //welke manier van reizen gebruiken we (variabele travelmode)
+        };
+        // Roep directions API op
+        directionsService.route(request, function(response, status) {
+          if (status == google.maps.DirectionsStatus.OK) {
+          // clear de richtingdetails van vorige beschrijving alvorens nieuwe te overschijven
+          $('#directionsPanel').empty();
+          // Toon de richtingdetails in de container
+          directionsDisplay.setDirections(response);
+        }
+        else {
+          // Geef alert wanneer route niet kan worden gevonden
+          if (status == 'ZERO_RESULTS') {
+            alert('Kan geen route vinden tussen begin en einde!');
+          } 
+          else if (status == 'UNKNOWN_ERROR') {
+            alert('De aanvraag kon niet worden behandeld wegens een error in de server. probeer nogmaals');
+          } 
+          else if (status == 'REQUEST_DENIED') {
+            alert('Deze website is niet bevoegd om deze service te gebruiken');
+          } 
+          else if (status == 'OVER_QUERY_LIMIT') {
+            alert('De website heeft zijn limiet bereikt! de tijdsperiode is mogelijk te kort');
+          } 
+          else if (status == 'NOT_FOUND') {
+            alert('De bestemming kon niet worden gevonden!');
+          } 
+          else if (status == 'INVALID_REQUEST') {
+            alert('De routebeschrijving was ongeldig!');         
+          } 
+          else {
+            alert("Er is een onbekende fout opgetreden. Foutcode: "+status);
+          }
+        }
+        });
+      }
+
+    </script>
+  </head>
+  <body onLoad="initialize()">
+    <h1>Route Calculator</h1>
+    <div id="map_canvas" style="width:100%; height:300px"></div>
+    <form action="#" onSubmit="calcRoute();return false;" id="routeForm">
+    <label>Van:&nbsp;
+      <input type="text" id="routeStart" value="" placeholder="Startpunt">
+          <br/><a href="#" class="autoLink" style="display: none;">Gebruik huidige locatie: <span>Niet Gevonden!</span></a><br/><br/>
+    </label>
+    <label>Naar:
+      <input type="text" id="routeEnd" value="" placeholder="Eindpunt"> <br/><br/>
+    </label>
+    <label>
+      <input type="radio" name="travelMode" value="DRIVING" checked /> Rijden
+    </label>
+    <label>
+      <input type="radio" name="travelMode" value="BICYCLING" /> Fietsen
+    </label>
+    <label>
+      <input type="radio" name="travelMode" value="TRANSIT" /> Openbaar Vervoer
+    </label>
+    <label>
+      <input type="radio" name="travelMode" value="WALKING" /> Wandelen
+    </label><br/><br/>
+    <input type="submit" value="Bereken Route">
+    </form><br/>
+
+    <div id="directionsPanel">
+      Vul je route in en klik op 'Bereken Route'
+    </div>
+    <p>&nbsp;&copy; Niels Bekkers</p>
+  </body>
+</html>
